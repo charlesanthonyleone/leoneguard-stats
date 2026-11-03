@@ -1,74 +1,82 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>🦁 LeoneGuard Stats</title>
-<style>
-:root{--bg:#0d0b08;--card:#17130d;--gold:#e0a82e;--mane:#b8721d;--txt:#efe6d6;--dim:#9c8f78}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#2a1e0c,var(--bg) 60%);color:var(--txt);font:15px/1.5 system-ui,sans-serif}
-header{text-align:center;padding:40px 16px 10px}h1{margin:0;font-size:2.2em;color:var(--gold);letter-spacing:.5px}header p{color:var(--dim);margin:6px 0}
-main{max-width:1000px;margin:auto;padding:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
-.card{background:var(--card);border:1px solid #2e2516;border-radius:14px;padding:16px}.big{font-size:2em;color:var(--gold);font-weight:700}
-h2{color:var(--mane);border-bottom:1px solid #2e2516;padding-bottom:6px;margin-top:32px}table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid #241d12;text-align:left}
-th{color:var(--dim);font-weight:600}.bar{height:10px;background:linear-gradient(90deg,var(--mane),var(--gold));border-radius:5px}
-.g b{color:var(--gold)}.hero{border:2px solid var(--gold);background:linear-gradient(180deg,#241a0b,var(--card))}
-input#q{width:100%;padding:14px 16px;font-size:1.1em;border-radius:12px;border:2px solid var(--mane);background:#120f0a;color:var(--txt);outline:none}input#q:focus{border-color:var(--gold)}
-.feed p{margin:8px 0;padding:8px 10px;background:#120f0a;border-left:3px solid var(--gold);border-radius:6px}.meta{color:var(--dim);font-size:.85em}.tag{background:#2e2516;color:var(--gold);border-radius:6px;padding:1px 6px;font-size:.8em;margin-left:4px}mark{background:var(--mane);color:#fff;border-radius:3px}
-.al{color:var(--dim);font-size:.85em}.g p{margin:6px 0}footer{text-align:center;color:var(--dim);padding:30px;font-size:.85em}.ok{color:#7fd47f}.off{color:#e07a5f}
-.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.ach div{background:#120f0a;border:1px solid #2e2516;border-left:4px solid var(--c);border-radius:10px;padding:10px}.ach .i{font-size:1.6em}.ach .t{font-weight:700;color:var(--c)}.ach .lock{opacity:.6}.rar{font-size:.75em;color:var(--c);text-transform:uppercase;letter-spacing:.5px}
-</style></head><body>
-<header><h1>🦁 LeoneGuard</h1><p>TOS-compliant anti-hate guard for xat chats. Aggregate stats only: no names, IDs or messages, ever.</p><p id="upd"></p></header>
-<main>
-<div class="card hero"><h2 style="margin-top:0;border:0">🔎 Search LeoneGuard</h2>
-<input id="q" type="search" placeholder="Search tactics, aliases, definitions, and Guard's callouts (by tactic, room, date, or text)…" autofocus>
-<p class="meta" id="qhint">Free search over the tactic glossary and every callout line LeoneGuard posted. Only Guard's own words are here: no usernames, IDs, or user messages.</p>
-<div id="qres"></div></div>
-<div class="grid" id="status" style="margin-top:14px"></div>
-<h2>🚨 Callouts</h2><table id="cdays"><tr><th>Day</th><th>Room</th><th>Callouts</th><th>Messages seen</th></tr></table>
-<h3 style="color:var(--gold)">Callout feed (Guard's own lines, times ET)</h3><div class="feed" id="feed"><p class="meta">No callouts yet.</p></div>
-<h2>Messages seen per day per room</h2><table id="msgs"><tr><th>Day</th><th>Room</th><th>Messages</th><th>Catches</th><th>Callouts</th><th></th></tr></table>
-<h2>Last 14 days</h2><table id="days"><tr><th>Day</th><th>Messages</th><th>Catches</th><th>Live callouts</th><th></th></tr></table>
-<h2>Per room (90 days)</h2><table id="rooms"><tr><th>Room</th><th>Messages</th><th>Catches</th><th>Callouts</th></tr></table>
-<h2>Tactics seen (90 days)</h2><table id="tactics"><tr><th>Tactic</th><th>Count</th><th></th></tr></table>
-<h2>🏆 Leaderboard (opt-in only)</h2><table id="lb"><tr><th>#</th><th>Player</th><th>Level</th><th>XP</th><th>Achievements</th></tr></table>
-<h2>🦁 Achievement showcase</h2><p class="meta" id="achsum"></p><div class="ach" id="ach"></div>
-<h2>Tactic glossary</h2><div class="g" id="gloss"></div>
-</main><footer>Updated automatically from the LeoneGuard server. Data: <a style="color:var(--gold)" href="stats.json">stats.json</a></footer>
-<script>
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const $=id=>document.getElementById(id), pretty=t=>String(t).replace(/_/g,'-');
-const ET=ts=>new Date(ts).toLocaleString('en-US',{timeZone:'America/New_York',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';
-const etDay=ts=>new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
-const sum=(rs,k)=>Object.values(rs).reduce((a,v)=>a+(v[k]||0),0);
-const hl=(t,ws)=>{let h=esc(t);for(const w of ws)if(w)h=h.replace(new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>');return h};
-let GL=[],FEED=[];
-const feedHTML=c=>`<p>${c._h||esc(c.line)}<br><span class="meta">${esc(ET(c.ts))} · room <span class="tag">${esc(c.room)}</span> · tactic <span class="tag">${esc(pretty(c.tactic))}</span></span></p>`;
-function search(){const q=$('q').value.trim().toLowerCase(),out=$('qres');if(!q){out.innerHTML='';return}
-  const ws=q.split(/\s+/).filter(Boolean);
-  const g=GL.filter(x=>{const hay=[x.key,pretty(x.key),x.title,(x.aliases||[]).join(' '),x.def,x.line].join(' ').toLowerCase();return ws.every(w=>hay.includes(w))});
-  const f=FEED.filter(c=>{const hay=[c.tactic,pretty(c.tactic),c.room,c.line,ET(c.ts),etDay(c.ts)].join(' ').toLowerCase();return ws.every(w=>hay.includes(w))}).slice().reverse();
-  out.innerHTML=`<p class="meta">${g.length} tactic${g.length==1?'':'s'} · ${f.length} callout${f.length==1?'':'s'}</p>`+
-   (g.length?'<h3 style="color:var(--mane)">Tactics</h3><div class="g">'+g.slice(0,40).map(x=>`<p><b>${hl(x.title||pretty(x.key),ws)}</b> <span class="tag">${hl(pretty(x.key),ws)}</span>${x.aliases&&x.aliases.length?` <span class="al">aka ${hl(x.aliases.join(', '),ws)}</span>`:''}<br>${hl(x.def||x.line,ws)}<br><span class="meta">Guard says: “${hl(x.line,ws)}”</span></p>`).join('')+'</div>':'')+
-   (f.length?'<h3 style="color:var(--mane)">Callouts</h3><div class="feed">'+f.slice(0,100).map(c=>feedHTML({...c,_h:hl(c.line,ws)})).join('')+'</div>':'')}
-$('q').addEventListener('input',search);
-fetch('stats.json?'+Date.now()).then(r=>r.json()).then(s=>{
-  $('upd').textContent='Updated '+ET(new Date(s.updated).getTime());
-  const days=Object.entries(s.days||{}).sort(), room={}, tac={}; let C=0,K=0,M=0;
-  for(const[,rs]of days)for(const[r,v]of Object.entries(rs)){room[r]??={m:0,c:0,k:0};room[r].m+=v.messages||0;room[r].c+=v.catches;room[r].k+=v.callouts;M+=v.messages||0;C+=v.catches;K+=v.callouts;for(const[t,n]of Object.entries(v.tactics||{}))tac[t]=(tac[t]||0)+n}
-  const st=s.status||{}, today=days.length?days[days.length-1]:null;
-  $('status').innerHTML=[['Messages seen',M],['Messages today',today?sum(today[1],'messages'):0],['Callouts today',today?sum(today[1],'callouts'):0],['Live callouts (90d)',K],['Catches',C],['Callouts',`<span class="${st.callouts==='live'?'ok':'off'}">${esc(st.callouts||'?')}</span>`],['Live rooms',esc((st.liveRooms||[]).join(', ')||'none')]].map(([a,b])=>`<div class="card"><div style="color:var(--dim)">${a}</div><div class="big">${b}</div></div>`).join('');
-  const last=days.slice(-14).reverse(), mx=Math.max(1,...last.map(([,rs])=>sum(rs,'messages')));
-  $('days').innerHTML+=last.map(([d,rs])=>`<tr><td>${esc(d)}</td><td>${sum(rs,'messages')}</td><td>${sum(rs,'catches')}</td><td>${sum(rs,'callouts')}</td><td style="width:35%"><div class="bar" style="width:${100*sum(rs,'messages')/mx}%"></div></td></tr>`).join('');
-  const rows=last.flatMap(([d,rs])=>Object.entries(rs).map(([r,v])=>[d,r,v])), rm=Math.max(1,...rows.map(x=>x[2].messages||0));
-  $('msgs').innerHTML+=rows.map(([d,r,v])=>`<tr><td>${esc(d)}</td><td>${esc(r)}</td><td>${v.messages||0}</td><td>${v.catches}</td><td>${v.callouts}</td><td style="width:30%"><div class="bar" style="width:${100*(v.messages||0)/rm}%"></div></td></tr>`).join('');
-  $('cdays').innerHTML+=rows.filter(x=>x[2].callouts).map(([d,r,v])=>`<tr><td>${esc(d)}</td><td>${esc(r)}</td><td class="big" style="font-size:1.3em">${v.callouts}</td><td>${v.messages||0}</td></tr>`).join('')||'<tr><td colspan="4" class="meta">No callouts in the last 14 days.</td></tr>';
-  $('rooms').innerHTML+=Object.entries(room).map(([r,v])=>`<tr><td>${esc(r)}</td><td>${v.m}</td><td>${v.c}</td><td>${v.k}</td></tr>`).join('');
-  const tm=Math.max(1,...Object.values(tac));
-  $('tactics').innerHTML+=Object.entries(tac).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(pretty(t))}</td><td>${n}</td><td style="width:40%"><div class="bar" style="width:${100*n/tm}%"></div></td></tr>`).join('');
-  GL=s.glossary||[]; FEED=(s.callouts||[]).filter(c=>c&&typeof c.line==='string'&&c.line.startsWith('🦁'));
-  if(FEED.length)$('feed').innerHTML=FEED.slice(-50).reverse().map(c=>feedHTML(c)).join('');
-  $('gloss').innerHTML=GL.map(g=>`<p><b>${esc(g.title||pretty(g.key))}</b>${g.aliases&&g.aliases.length?` <span class="al">aka ${esc(g.aliases.join(', '))}</span>`:''} — ${esc(g.def||g.line.replace(/^[^:]*:\s*/,''))}</p>`).join('');
-  const AC=s.achievements||[], AM=Object.fromEntries(AC.map(a=>[a.key,a])), RO={common:0,uncommon:1,rare:2,epic:3,legendary:4};
-  $('lb').innerHTML+=(s.leaderboard||[]).map(p=>`<tr><td>${p.rank}</td><td>${esc(p.display)}</td><td>${p.level}</td><td>${p.xp}</td><td>${(p.achievements||[]).map(k=>AM[k]?`<span title="${esc(AM[k].title)}">${esc(AM[k].icon)}</span>`:'').join('')}</td></tr>`).join('')||'<tr><td colspan="5" class="meta">Nobody yet. Type !optin in a Guard room to join.</td></tr>';
-  $('achsum').innerHTML=`${AC.length} achievements · ${AC.filter(a=>a.secret).length} secret (shown as ??? until someone unlocks them) · `+['common','uncommon','rare','epic','legendary'].map(r=>{const a=AC.find(x=>x.rarity===r);return a?`<span style="color:${esc(a.color)}">● ${r}</span>`:''}).join(' ');
-  $('ach').innerHTML=AC.slice().sort((a,b)=>RO[a.rarity]-RO[b.rarity]).map(a=>`<div style="--c:${esc(a.color)}" class="${a.title==='???'?'lock':''}"><span class="i">${esc(a.icon)}</span> <span class="t">${esc(a.title)}</span><br><span class="rar">${esc(a.rarity)}${a.tier?' · '+esc(a.tier):''}${a.secret?' · secret':''}</span><br>${esc(a.desc)}<br><span class="meta">${a.unlocked?`Unlocked by ${a.unlocked}`:'Not unlocked yet'}</span></div>`).join('');
-  search();
-}).catch(()=>{$('upd').textContent='Stats not published yet.'});
-</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LeoneGuard (TOS Compliant) · Public Stats</title>
+<meta name="description" content="Aggregate-only public statistics for LeoneGuard (TOS Compliant), an anti-hate guard for xat chats. No names, IDs or messages.">
+<meta name="theme-color" content="#02050b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦁</text></svg>">
+<link rel="preload" href="assets/sky/moon.webp" as="image">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="scene" aria-hidden="true"><div id="scene-fb" class="scene-fallback"></div><canvas id="scene-gl" class="scene-gl"></canvas><canvas id="scene-2d" class="scene-2d"></canvas></div>
+<canvas id="scene-top" class="scene-top" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow"><span class="dot" id="livedot"></span><span id="livetxt">Public statistics</span></p>
+    <h1>LeoneGuard <span class="tos">(TOS Compliant)</span></h1>
+    <p class="lede">An anti-hate guard for xat chats. Everything on this page is an aggregate: no names, IDs or messages, ever.</p>
+    <p class="updated" id="upd">Loading…</p>
+  </header>
+
+  <section class="kpis" id="kpis" aria-label="Key figures"></section>
+
+  <section class="card">
+    <div class="card-h"><h2>Messages seen per day</h2><span class="hint">Last 14 days · all rooms</span></div>
+    <div id="chart" class="chart"></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <div class="card-h"><h2>Daily breakdown</h2><span class="hint">Per room, last 14 days</span></div>
+      <div class="tbl"><table id="daily"><thead><tr><th>Day</th><th>Room</th><th class="n">Messages</th><th class="n">Catches</th><th class="n">Callouts</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>Rooms</h2><span class="hint">All published days</span></div>
+      <div class="tbl"><table id="rooms"><thead><tr><th>Room</th><th class="n">Messages</th><th class="n">Catches</th><th class="n">Callouts</th></tr></thead><tbody></tbody></table></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-h"><h2>Top tactics</h2><span class="hint">How often each tactic was caught</span></div>
+    <ol id="tactics" class="bars"></ol>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><h2>Leaderboard</h2><span class="hint">Opt-in players only</span></div>
+    <div class="tbl"><table id="lb"><thead><tr><th class="n">#</th><th>Player</th><th class="n">Level</th><th class="n">XP</th><th>Achievements</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><h2>Achievements</h2><span class="hint" id="achsum"></span></div>
+    <div class="filters" id="rarf" role="group" aria-label="Filter by rarity"></div>
+    <div id="ach" class="ach"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><h2>Tactic glossary</h2><span class="hint" id="glsum"></span></div>
+    <div id="gloss" class="gloss"></div>
+  </section>
+
+  <footer class="foot">
+    <p>Updated automatically from the LeoneGuard server every 15 minutes · <a href="stats.json">stats.json</a></p>
+    <p class="credit">Milky Way: <a href="https://www.eso.org/public/images/eso0932a/" rel="noopener">ESO/S. Brunier</a>, CC BY 4.0 · Moon: <a href="https://commons.wikimedia.org/wiki/File:FullMoon2010.jpg" rel="noopener">Gregory H. Revera</a>, CC BY-SA 3.0</p>
+  </footer>
+</div>
+
+<div class="scene-set">
+  <div id="scene-panel" class="scene-panel glass" role="dialog" aria-label="Scene settings" hidden>
+    <label><input type="checkbox" id="set-ocean"> Ocean animation</label>
+    <label><input type="checkbox" id="set-sky"> Star &amp; sky animation</label>
+    <p>Off shows a still frame. Defaults follow your system's reduced-motion setting.</p>
+  </div>
+  <button id="gear" class="scene-gear glass" aria-expanded="false" aria-label="Scene settings" title="Scene settings"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+</div>
+
+<script src="assets/scene.js" defer></script>
+<script src="assets/app.js" defer></script>
+</body>
+</html>
