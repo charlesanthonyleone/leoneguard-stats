@@ -8,29 +8,60 @@ main{max-width:1000px;margin:auto;padding:16px}.grid{display:grid;grid-template-
 .card{background:var(--card);border:1px solid #2e2516;border-radius:14px;padding:16px}.big{font-size:2em;color:var(--gold);font-weight:700}
 h2{color:var(--mane);border-bottom:1px solid #2e2516;padding-bottom:6px;margin-top:32px}table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid #241d12;text-align:left}
 th{color:var(--dim);font-weight:600}.bar{height:10px;background:linear-gradient(90deg,var(--mane),var(--gold));border-radius:5px}
-.g b{color:var(--gold)}.g p{margin:6px 0}footer{text-align:center;color:var(--dim);padding:30px;font-size:.85em}.ok{color:#7fd47f}.off{color:#e07a5f}
+.g b{color:var(--gold)}.hero{border:2px solid var(--gold);background:linear-gradient(180deg,#241a0b,var(--card))}
+input#q{width:100%;padding:14px 16px;font-size:1.1em;border-radius:12px;border:2px solid var(--mane);background:#120f0a;color:var(--txt);outline:none}input#q:focus{border-color:var(--gold)}
+.feed p{margin:8px 0;padding:8px 10px;background:#120f0a;border-left:3px solid var(--gold);border-radius:6px}.meta{color:var(--dim);font-size:.85em}.tag{background:#2e2516;color:var(--gold);border-radius:6px;padding:1px 6px;font-size:.8em;margin-left:4px}mark{background:var(--mane);color:#fff;border-radius:3px}
+.al{color:var(--dim);font-size:.85em}.g p{margin:6px 0}footer{text-align:center;color:var(--dim);padding:30px;font-size:.85em}.ok{color:#7fd47f}.off{color:#e07a5f}
 </style></head><body>
 <header><h1>🦁 LeoneGuard</h1><p>TOS-compliant anti-hate guard for xat chats. Aggregate stats only: no names, IDs or messages, ever.</p><p id="upd"></p></header>
 <main>
-<div class="grid" id="status"></div>
-<h2>Last 14 days</h2><table id="days"><tr><th>Day</th><th>Catches</th><th>Live callouts</th><th></th></tr></table>
-<h2>Per room (90 days)</h2><table id="rooms"><tr><th>Room</th><th>Catches</th><th>Callouts</th></tr></table>
+<div class="card hero"><h2 style="margin-top:0;border:0">🔎 Search LeoneGuard</h2>
+<input id="q" type="search" placeholder="Search tactics, aliases, definitions, and Guard's callouts (by tactic, room, date, or text)…" autofocus>
+<p class="meta" id="qhint">Free search over the tactic glossary and every callout line LeoneGuard posted. Only Guard's own words are here: no usernames, IDs, or user messages.</p>
+<div id="qres"></div></div>
+<div class="grid" id="status" style="margin-top:14px"></div>
+<h2>🚨 Callouts</h2><table id="cdays"><tr><th>Day</th><th>Room</th><th>Callouts</th><th>Messages seen</th></tr></table>
+<h3 style="color:var(--gold)">Callout feed (Guard's own lines, times ET)</h3><div class="feed" id="feed"><p class="meta">No callouts yet.</p></div>
+<h2>Messages seen per day per room</h2><table id="msgs"><tr><th>Day</th><th>Room</th><th>Messages</th><th>Catches</th><th>Callouts</th><th></th></tr></table>
+<h2>Last 14 days</h2><table id="days"><tr><th>Day</th><th>Messages</th><th>Catches</th><th>Live callouts</th><th></th></tr></table>
+<h2>Per room (90 days)</h2><table id="rooms"><tr><th>Room</th><th>Messages</th><th>Catches</th><th>Callouts</th></tr></table>
 <h2>Tactics seen (90 days)</h2><table id="tactics"><tr><th>Tactic</th><th>Count</th><th></th></tr></table>
 <h2>Tactic glossary</h2><div class="g" id="gloss"></div>
 </main><footer>Updated automatically from the LeoneGuard server. Data: <a style="color:var(--gold)" href="stats.json">stats.json</a></footer>
 <script>
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id), pretty=t=>String(t).replace(/_/g,'-');
+const ET=ts=>new Date(ts).toLocaleString('en-US',{timeZone:'America/New_York',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';
+const etDay=ts=>new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+const sum=(rs,k)=>Object.values(rs).reduce((a,v)=>a+(v[k]||0),0);
+const hl=(t,ws)=>{let h=esc(t);for(const w of ws)if(w)h=h.replace(new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>');return h};
+let GL=[],FEED=[];
+const feedHTML=c=>`<p>${c._h||esc(c.line)}<br><span class="meta">${esc(ET(c.ts))} · room <span class="tag">${esc(c.room)}</span> · tactic <span class="tag">${esc(pretty(c.tactic))}</span></span></p>`;
+function search(){const q=$('q').value.trim().toLowerCase(),out=$('qres');if(!q){out.innerHTML='';return}
+  const ws=q.split(/\s+/).filter(Boolean);
+  const g=GL.filter(x=>{const hay=[x.key,pretty(x.key),x.title,(x.aliases||[]).join(' '),x.def,x.line].join(' ').toLowerCase();return ws.every(w=>hay.includes(w))});
+  const f=FEED.filter(c=>{const hay=[c.tactic,pretty(c.tactic),c.room,c.line,ET(c.ts),etDay(c.ts)].join(' ').toLowerCase();return ws.every(w=>hay.includes(w))}).slice().reverse();
+  out.innerHTML=`<p class="meta">${g.length} tactic${g.length==1?'':'s'} · ${f.length} callout${f.length==1?'':'s'}</p>`+
+   (g.length?'<h3 style="color:var(--mane)">Tactics</h3><div class="g">'+g.slice(0,40).map(x=>`<p><b>${hl(x.title||pretty(x.key),ws)}</b> <span class="tag">${hl(pretty(x.key),ws)}</span>${x.aliases&&x.aliases.length?` <span class="al">aka ${hl(x.aliases.join(', '),ws)}</span>`:''}<br>${hl(x.def||x.line,ws)}<br><span class="meta">Guard says: “${hl(x.line,ws)}”</span></p>`).join('')+'</div>':'')+
+   (f.length?'<h3 style="color:var(--mane)">Callouts</h3><div class="feed">'+f.slice(0,100).map(c=>feedHTML({...c,_h:hl(c.line,ws)})).join('')+'</div>':'')}
+$('q').addEventListener('input',search);
 fetch('stats.json?'+Date.now()).then(r=>r.json()).then(s=>{
-  document.getElementById('upd').textContent='Updated '+new Date(s.updated).toLocaleString();
-  const days=Object.entries(s.days||{}).sort(), room={}, tac={}; let C=0,K=0;
-  for(const[,rs]of days)for(const[r,v]of Object.entries(rs)){room[r]??={c:0,k:0};room[r].c+=v.catches;room[r].k+=v.callouts;C+=v.catches;K+=v.callouts;for(const[t,n]of Object.entries(v.tactics||{}))tac[t]=(tac[t]||0)+n}
-  const st=s.status||{};
-  document.getElementById('status').innerHTML=[['Catches',C],['Live callouts',K],['Callouts',`<span class="${st.callouts==='live'?'ok':'off'}">${esc(st.callouts||'?')}</span>`],['Live rooms',esc((st.liveRooms||[]).join(', ')||'none')]].map(([a,b])=>`<div class="card"><div style="color:var(--dim)">${a}</div><div class="big">${b}</div></div>`).join('');
-  const last=days.slice(-14).reverse(), mx=Math.max(1,...last.map(([,rs])=>Object.values(rs).reduce((a,v)=>a+v.catches,0)));
-  document.getElementById('days').innerHTML+=last.map(([d,rs])=>{const c=Object.values(rs).reduce((a,v)=>a+v.catches,0),k=Object.values(rs).reduce((a,v)=>a+v.callouts,0);return`<tr><td>${esc(d)}</td><td>${c}</td><td>${k}</td><td style="width:40%"><div class="bar" style="width:${100*c/mx}%"></div></td></tr>`}).join('');
-  document.getElementById('rooms').innerHTML+=Object.entries(room).map(([r,v])=>`<tr><td>${esc(r)}</td><td>${v.c}</td><td>${v.k}</td></tr>`).join('');
+  $('upd').textContent='Updated '+ET(new Date(s.updated).getTime());
+  const days=Object.entries(s.days||{}).sort(), room={}, tac={}; let C=0,K=0,M=0;
+  for(const[,rs]of days)for(const[r,v]of Object.entries(rs)){room[r]??={m:0,c:0,k:0};room[r].m+=v.messages||0;room[r].c+=v.catches;room[r].k+=v.callouts;M+=v.messages||0;C+=v.catches;K+=v.callouts;for(const[t,n]of Object.entries(v.tactics||{}))tac[t]=(tac[t]||0)+n}
+  const st=s.status||{}, today=days.length?days[days.length-1]:null;
+  $('status').innerHTML=[['Messages seen',M],['Messages today',today?sum(today[1],'messages'):0],['Callouts today',today?sum(today[1],'callouts'):0],['Live callouts (90d)',K],['Catches',C],['Callouts',`<span class="${st.callouts==='live'?'ok':'off'}">${esc(st.callouts||'?')}</span>`],['Live rooms',esc((st.liveRooms||[]).join(', ')||'none')]].map(([a,b])=>`<div class="card"><div style="color:var(--dim)">${a}</div><div class="big">${b}</div></div>`).join('');
+  const last=days.slice(-14).reverse(), mx=Math.max(1,...last.map(([,rs])=>sum(rs,'messages')));
+  $('days').innerHTML+=last.map(([d,rs])=>`<tr><td>${esc(d)}</td><td>${sum(rs,'messages')}</td><td>${sum(rs,'catches')}</td><td>${sum(rs,'callouts')}</td><td style="width:35%"><div class="bar" style="width:${100*sum(rs,'messages')/mx}%"></div></td></tr>`).join('');
+  const rows=last.flatMap(([d,rs])=>Object.entries(rs).map(([r,v])=>[d,r,v])), rm=Math.max(1,...rows.map(x=>x[2].messages||0));
+  $('msgs').innerHTML+=rows.map(([d,r,v])=>`<tr><td>${esc(d)}</td><td>${esc(r)}</td><td>${v.messages||0}</td><td>${v.catches}</td><td>${v.callouts}</td><td style="width:30%"><div class="bar" style="width:${100*(v.messages||0)/rm}%"></div></td></tr>`).join('');
+  $('cdays').innerHTML+=rows.filter(x=>x[2].callouts).map(([d,r,v])=>`<tr><td>${esc(d)}</td><td>${esc(r)}</td><td class="big" style="font-size:1.3em">${v.callouts}</td><td>${v.messages||0}</td></tr>`).join('')||'<tr><td colspan="4" class="meta">No callouts in the last 14 days.</td></tr>';
+  $('rooms').innerHTML+=Object.entries(room).map(([r,v])=>`<tr><td>${esc(r)}</td><td>${v.m}</td><td>${v.c}</td><td>${v.k}</td></tr>`).join('');
   const tm=Math.max(1,...Object.values(tac));
-  document.getElementById('tactics').innerHTML+=Object.entries(tac).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t.replace(/_/g,'-'))}</td><td>${n}</td><td style="width:40%"><div class="bar" style="width:${100*n/tm}%"></div></td></tr>`).join('');
-  document.getElementById('gloss').innerHTML=(s.glossary||[]).map(g=>`<p><b>${esc(g.key.replace(/_/g,'-'))}</b> — ${esc(g.line.replace(/^[^:]*:\s*/,''))}</p>`).join('');
-}).catch(()=>{document.getElementById('upd').textContent='Stats not published yet.'});
+  $('tactics').innerHTML+=Object.entries(tac).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(pretty(t))}</td><td>${n}</td><td style="width:40%"><div class="bar" style="width:${100*n/tm}%"></div></td></tr>`).join('');
+  GL=s.glossary||[]; FEED=(s.callouts||[]).filter(c=>c&&typeof c.line==='string'&&c.line.startsWith('🦁'));
+  if(FEED.length)$('feed').innerHTML=FEED.slice(-50).reverse().map(c=>feedHTML(c)).join('');
+  $('gloss').innerHTML=GL.map(g=>`<p><b>${esc(g.title||pretty(g.key))}</b>${g.aliases&&g.aliases.length?` <span class="al">aka ${esc(g.aliases.join(', '))}</span>`:''} — ${esc(g.def||g.line.replace(/^[^:]*:\s*/,''))}</p>`).join('');
+  search();
+}).catch(()=>{$('upd').textContent='Stats not published yet.'});
 </script></body></html>
