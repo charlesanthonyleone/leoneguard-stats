@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🦁 LeoneGuard Stats</title>
+<style>
+:root{--bg:#0d0b08;--card:#17130d;--gold:#e0a82e;--mane:#b8721d;--txt:#efe6d6;--dim:#9c8f78}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#2a1e0c,var(--bg) 60%);color:var(--txt);font:15px/1.5 system-ui,sans-serif}
+header{text-align:center;padding:40px 16px 10px}h1{margin:0;font-size:2.2em;color:var(--gold);letter-spacing:.5px}header p{color:var(--dim);margin:6px 0}
+main{max-width:1000px;margin:auto;padding:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid #2e2516;border-radius:14px;padding:16px}.big{font-size:2em;color:var(--gold);font-weight:700}
+h2{color:var(--mane);border-bottom:1px solid #2e2516;padding-bottom:6px;margin-top:32px}table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid #241d12;text-align:left}
+th{color:var(--dim);font-weight:600}.bar{height:10px;background:linear-gradient(90deg,var(--mane),var(--gold));border-radius:5px}
+.g b{color:var(--gold)}.g p{margin:6px 0}footer{text-align:center;color:var(--dim);padding:30px;font-size:.85em}.ok{color:#7fd47f}.off{color:#e07a5f}
+</style></head><body>
+<header><h1>🦁 LeoneGuard</h1><p>TOS-compliant anti-hate guard for xat chats. Aggregate stats only: no names, IDs or messages, ever.</p><p id="upd"></p></header>
+<main>
+<div class="grid" id="status"></div>
+<h2>Last 14 days</h2><table id="days"><tr><th>Day</th><th>Catches</th><th>Live callouts</th><th></th></tr></table>
+<h2>Per room (90 days)</h2><table id="rooms"><tr><th>Room</th><th>Catches</th><th>Callouts</th></tr></table>
+<h2>Tactics seen (90 days)</h2><table id="tactics"><tr><th>Tactic</th><th>Count</th><th></th></tr></table>
+<h2>Tactic glossary</h2><div class="g" id="gloss"></div>
+</main><footer>Updated automatically from the LeoneGuard server. Data: <a style="color:var(--gold)" href="stats.json">stats.json</a></footer>
+<script>
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+fetch('stats.json?'+Date.now()).then(r=>r.json()).then(s=>{
+  document.getElementById('upd').textContent='Updated '+new Date(s.updated).toLocaleString();
+  const days=Object.entries(s.days||{}).sort(), room={}, tac={}; let C=0,K=0;
+  for(const[,rs]of days)for(const[r,v]of Object.entries(rs)){room[r]??={c:0,k:0};room[r].c+=v.catches;room[r].k+=v.callouts;C+=v.catches;K+=v.callouts;for(const[t,n]of Object.entries(v.tactics||{}))tac[t]=(tac[t]||0)+n}
+  const st=s.status||{};
+  document.getElementById('status').innerHTML=[['Catches',C],['Live callouts',K],['Callouts',`<span class="${st.callouts==='live'?'ok':'off'}">${esc(st.callouts||'?')}</span>`],['Live rooms',esc((st.liveRooms||[]).join(', ')||'none')]].map(([a,b])=>`<div class="card"><div style="color:var(--dim)">${a}</div><div class="big">${b}</div></div>`).join('');
+  const last=days.slice(-14).reverse(), mx=Math.max(1,...last.map(([,rs])=>Object.values(rs).reduce((a,v)=>a+v.catches,0)));
+  document.getElementById('days').innerHTML+=last.map(([d,rs])=>{const c=Object.values(rs).reduce((a,v)=>a+v.catches,0),k=Object.values(rs).reduce((a,v)=>a+v.callouts,0);return`<tr><td>${esc(d)}</td><td>${c}</td><td>${k}</td><td style="width:40%"><div class="bar" style="width:${100*c/mx}%"></div></td></tr>`}).join('');
+  document.getElementById('rooms').innerHTML+=Object.entries(room).map(([r,v])=>`<tr><td>${esc(r)}</td><td>${v.c}</td><td>${v.k}</td></tr>`).join('');
+  const tm=Math.max(1,...Object.values(tac));
+  document.getElementById('tactics').innerHTML+=Object.entries(tac).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<tr><td>${esc(t.replace(/_/g,'-'))}</td><td>${n}</td><td style="width:40%"><div class="bar" style="width:${100*n/tm}%"></div></td></tr>`).join('');
+  document.getElementById('gloss').innerHTML=(s.glossary||[]).map(g=>`<p><b>${esc(g.key.replace(/_/g,'-'))}</b> — ${esc(g.line.replace(/^[^:]*:\s*/,''))}</p>`).join('');
+}).catch(()=>{document.getElementById('upd').textContent='Stats not published yet.'});
+</script></body></html>
