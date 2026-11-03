@@ -12,6 +12,7 @@ th{color:var(--dim);font-weight:600}.bar{height:10px;background:linear-gradient(
 input#q{width:100%;padding:14px 16px;font-size:1.1em;border-radius:12px;border:2px solid var(--mane);background:#120f0a;color:var(--txt);outline:none}input#q:focus{border-color:var(--gold)}
 .feed p{margin:8px 0;padding:8px 10px;background:#120f0a;border-left:3px solid var(--gold);border-radius:6px}.meta{color:var(--dim);font-size:.85em}.tag{background:#2e2516;color:var(--gold);border-radius:6px;padding:1px 6px;font-size:.8em;margin-left:4px}mark{background:var(--mane);color:#fff;border-radius:3px}
 .al{color:var(--dim);font-size:.85em}.g p{margin:6px 0}footer{text-align:center;color:var(--dim);padding:30px;font-size:.85em}.ok{color:#7fd47f}.off{color:#e07a5f}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.ach div{background:#120f0a;border:1px solid #2e2516;border-left:4px solid var(--c);border-radius:10px;padding:10px}.ach .i{font-size:1.6em}.ach .t{font-weight:700;color:var(--c)}.ach .lock{opacity:.6}.rar{font-size:.75em;color:var(--c);text-transform:uppercase;letter-spacing:.5px}
 </style></head><body>
 <header><h1>🦁 LeoneGuard</h1><p>TOS-compliant anti-hate guard for xat chats. Aggregate stats only: no names, IDs or messages, ever.</p><p id="upd"></p></header>
 <main>
@@ -26,6 +27,8 @@ input#q{width:100%;padding:14px 16px;font-size:1.1em;border-radius:12px;border:2
 <h2>Last 14 days</h2><table id="days"><tr><th>Day</th><th>Messages</th><th>Catches</th><th>Live callouts</th><th></th></tr></table>
 <h2>Per room (90 days)</h2><table id="rooms"><tr><th>Room</th><th>Messages</th><th>Catches</th><th>Callouts</th></tr></table>
 <h2>Tactics seen (90 days)</h2><table id="tactics"><tr><th>Tactic</th><th>Count</th><th></th></tr></table>
+<h2>🏆 Leaderboard (opt-in only)</h2><table id="lb"><tr><th>#</th><th>Player</th><th>Level</th><th>XP</th><th>Achievements</th></tr></table>
+<h2>🦁 Achievement showcase</h2><p class="meta" id="achsum"></p><div class="ach" id="ach"></div>
 <h2>Tactic glossary</h2><div class="g" id="gloss"></div>
 </main><footer>Updated automatically from the LeoneGuard server. Data: <a style="color:var(--gold)" href="stats.json">stats.json</a></footer>
 <script>
@@ -62,6 +65,10 @@ fetch('stats.json?'+Date.now()).then(r=>r.json()).then(s=>{
   GL=s.glossary||[]; FEED=(s.callouts||[]).filter(c=>c&&typeof c.line==='string'&&c.line.startsWith('🦁'));
   if(FEED.length)$('feed').innerHTML=FEED.slice(-50).reverse().map(c=>feedHTML(c)).join('');
   $('gloss').innerHTML=GL.map(g=>`<p><b>${esc(g.title||pretty(g.key))}</b>${g.aliases&&g.aliases.length?` <span class="al">aka ${esc(g.aliases.join(', '))}</span>`:''} — ${esc(g.def||g.line.replace(/^[^:]*:\s*/,''))}</p>`).join('');
+  const AC=s.achievements||[], AM=Object.fromEntries(AC.map(a=>[a.key,a])), RO={common:0,uncommon:1,rare:2,epic:3,legendary:4};
+  $('lb').innerHTML+=(s.leaderboard||[]).map(p=>`<tr><td>${p.rank}</td><td>${esc(p.display)}</td><td>${p.level}</td><td>${p.xp}</td><td>${(p.achievements||[]).map(k=>AM[k]?`<span title="${esc(AM[k].title)}">${esc(AM[k].icon)}</span>`:'').join('')}</td></tr>`).join('')||'<tr><td colspan="5" class="meta">Nobody yet. Type !optin in a Guard room to join.</td></tr>';
+  $('achsum').innerHTML=`${AC.length} achievements · ${AC.filter(a=>a.secret).length} secret (shown as ??? until someone unlocks them) · `+['common','uncommon','rare','epic','legendary'].map(r=>{const a=AC.find(x=>x.rarity===r);return a?`<span style="color:${esc(a.color)}">● ${r}</span>`:''}).join(' ');
+  $('ach').innerHTML=AC.slice().sort((a,b)=>RO[a.rarity]-RO[b.rarity]).map(a=>`<div style="--c:${esc(a.color)}" class="${a.title==='???'?'lock':''}"><span class="i">${esc(a.icon)}</span> <span class="t">${esc(a.title)}</span><br><span class="rar">${esc(a.rarity)}${a.tier?' · '+esc(a.tier):''}${a.secret?' · secret':''}</span><br>${esc(a.desc)}<br><span class="meta">${a.unlocked?`Unlocked by ${a.unlocked}`:'Not unlocked yet'}</span></div>`).join('');
   search();
 }).catch(()=>{$('upd').textContent='Stats not published yet.'});
 </script></body></html>
